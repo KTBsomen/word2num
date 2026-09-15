@@ -99,7 +99,6 @@ print("\n=== Native Bengali Compound Hundreds ===")
 check("বারোশো", 1200)
 check("বারশো", 1200)
 check("বারশ", 1200)
-check("তেরোশো", 1300)
 check("তেরশো", 1300)
 check("তেরশ", 1300)
 check("চৌদ্দশো", 1400)
@@ -435,6 +434,8 @@ check_ambiguous("h2o", "(chemical formula must NOT become 2)")
 check_ambiguous("f16", "(aircraft model must NOT become 16)")
 check_ambiguous("teroso", "(roman teroso must NOT become 1800 or 1300)")
 check_ambiguous("tero", "(roman tero must NOT become 0)")
+check_ambiguous("তেরোশো", "(native তেরোশো must NOT become 1300)")
+check_ambiguous("তেরোশ", "(native তেরোশ must NOT become 1300)")
 check_ambiguous("hundred hundred", "(duplicate magnitude)")
 check_ambiguous("one lakh lakh", "(duplicate magnitude)")
 check_ambiguous("one thousand thousand", "(duplicate magnitude)")
@@ -489,6 +490,46 @@ check("डबल आठ", 88, "(Hindi: double 8 = 88)")
 check("ट्रिपल चार", 444, "(Hindi: triple 4 = 444)")
 check("ज़ीरो डबल आठ", "088", "(Hindi: zero double 8 = 088)")
 check("वन सेवन", 17, "(Hindi phonetic English: 1 7 = 17)")
+
+
+# ======================================================================
+# SECTION 9: REGRESSION TESTS FOR CONFIRMED ASR PARSER BUGS
+# ======================================================================
+print("\n=== Section 9: Regression Tests for Confirmed Bugs ===")
+# Bug 1: Standalone fractions and folded fraction prefixes
+check("sade panch", 5.5, "(Bug 1: standalone sade panch -> 5.5)")
+check("আড়াই কেজি চাল", 2.5, "(Bug 1: standalone আড়াই কেজি -> 2.5)")
+check("sawa char kg", 4.25, "(Bug 1: standalone sawa char -> 4.25)")
+check("paune char kg", 3.75, "(Bug 1: standalone paune char -> 3.75)")
+check("dedh kg lagega", 1.5, "(Bug 1: standalone dedh kg lagega -> 1.5)")
+check("adha kg", 0.5, "(Bug 1: standalone adha kg -> 0.5)")
+
+# Bug 2: Connector-joined numbers merging
+check_extract("পঞ্চাশ আর কুড়ি", [50, 20], "(Bug 2: connector separate numbers)")
+check_extract("fifty and twenty", [50, 20], "(Bug 2: fifty and twenty -> [50, 20])")
+check_extract("पचास और बीस", [50, 20], "(Bug 2: पचास और बीस -> [50, 20])")
+check_extract("100 আর 200", [100, 200], "(Bug 2: 100 আর 200 -> [100, 200])")
+check_extract("do aur teen", [2, 3], "(Bug 2: do aur teen -> [2, 3])")
+check("একশ আর পাঁচ", 105, "(Bug 2: internal connector 100 and 5 -> 105)")
+
+# Bug 3 & 4: Grocery items and Devanagari दाम
+check("দাম ५०० रुपये है", 500, "(Bug 4: Devanagari दाम 500)")
+check("আমাকে sháth কেজি চাল দাও", 60, "(Bug 3 & 5: চাল not 4, sháth not 108)")
+check_extract("give me 239 kg flour and 54 pieces rice", [239, 54], "(Bug 3: flour not 4, rice not 0)")
+check_extract("price of potato is 621 rupees, give me 383 kg", [621, 383], "(Bug 3: of not 0)")
+check_extract("प्याज का भाव क्या है? 810 रुपये किलो। ठीक है 303 किलो दे दो", [810, 303], "(Bug 3: दे दो not 2)")
+check_extract("ভैया 630 किलो चावल दो, दाम 227 रुपये", [630, 227], "(Bug 3: चावल दो not 2)")
+
+# Attached units on number words
+check("chuallisotaka", 4400, "(attached taka on compound: chualliso + taka -> 4400)")
+check("doshtaka", 10, "(attached taka on word: dosh + taka -> 10)")
+check("pachaskg", 50, "(attached kg on word: pachas + kg -> 50)")
+check("panchkilo", 5, "(attached kilo on word: panch + kilo -> 5)")
+check("বারোশোটাকা", 1200, "(attached taka on compound: বারোশো + টাকা -> 1200)")
+check("আড়াইশোটাকা", 250, "(attached taka on compound: আড়াইশো + টাকা -> 250)")
+check("পাঁচশতাকা", 500, "(attached taka with dental spelling: পাঁচশ + তাকা -> 500)")
+
+
 
 
 # ======================================================================

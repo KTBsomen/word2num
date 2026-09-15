@@ -85,8 +85,13 @@ def clean_and_normalize_text(text: str) -> str:
     # Hyphenation between words: "twenty-five" -> "twenty five"
     text = text.replace('-', ' ')
 
+    # Normalize verbal Hindi "दे दो" / "देदो" (imperative give, not numeral 2)
+    text = re.sub(r'(?<![\u0900-\u097F])(?:दे\s+दो|देदो)(?![\u0900-\u097F])', ' ', text)
+    # Normalize Hindi "दो" following item nouns when not followed by a unit/magnitude
+    text = re.sub(r'((?<![\u0900-\u097F])(?:चावल|आलू|दाल|चीनी|आटा|प्याज|सब्जी|सामान)\s+)दो(?!\s*(?:किलो|रुपये|रुपया|ग्राम|लीटर|पीस|सौ|हज़ार|हजार|लाख|करोड़|tho|thoh|[\d\u0966-\u096f]))', r'\1', text)
+
     # Boundary between digits and letters: "10lakh" -> "10 lakh", "50kg" -> "50 kg", "5ta" -> "5 ta", "১০টা" -> "10 টা"
-    text = re.sub(r'(?<=\d)(?=[a-zA-Z\u0900-\u09FF])', ' ', text)
+    text = re.sub(r'(?<=\d)(?=[a-zA-Z\u00C0-\u024F\u0900-\u09FF])', ' ', text)
 
     # Strip noisy enclosing/trailing punctuation: (), [], {}, "", '', !, ?, ;, :, ~
     text = re.sub(r'[\(\)\[\]\{\}"\'!?;:~*]', ' ', text)
@@ -156,7 +161,7 @@ def script_of(token: str) -> str:
             return 'bengali'
         if 0x0900 <= cp <= 0x097F:
             return 'devanagari'
-        if ('a' <= ch <= 'z') or ('A' <= ch <= 'Z'):
+        if ('a' <= ch <= 'z') or ('A' <= ch <= 'Z') or (0x00C0 <= cp <= 0x024F):
             return 'latin'
     return 'other'
 
@@ -492,7 +497,7 @@ COMPOUND_HUNDREDS: Dict[int, List[str]] = {
     250: ['আড়াইশো', 'আড়াইশো', 'আড়াইশ', 'আড়াইশ', 'araisho', 'arai sho', 'dhaiso', 'ढाई सौ', 'ढाईसौ', 'dhai sau'],
     1100: ['এগারোশো', 'এগারশো', 'এগারশ', 'egarosho', 'egaro sho', 'ग्यारह सौ', 'ग्यारहसौ', 'gyarah sau'],
     1200: ['বারোশো', 'বারশো', 'বারশ', 'barosho', 'baro sho', 'baroso', 'बारह सौ', 'बारहसौ', 'barah sau'],
-    1300: ['তেরোশো', 'তেরশো', 'তেরশ', 'তেল্লশো', 'तेरह सौ', 'तेरहसौ', 'terah sau'],
+    1300: ['তেরশো', 'তেরশ', 'তেল্লশো', 'तेरह सौ', 'तेरहसौ', 'terah sau'],
     1400: ['চৌদ্দশো', 'চোদ্দশো', 'চোদ্দশ', 'choddo sho', 'चौदह सौ', 'चौदहसौ', 'chaudah sau'],
     1500: ['পনেরোশো', 'পনেরশো', 'পনেরশ', 'ponerosho', 'ponero sho', 'पंद्रह सौ', 'पंद्रहसौ', 'pandrah sau'],
     1600: ['ষোলশো', 'ষোলশ', 'sholosho', 'sholo sho', 'सोलह सौ', 'सोलहसौ', 'solah sau'],
@@ -531,28 +536,47 @@ FRACTION_PREFIXES: Dict[str, Tuple[str, float]] = {
     'सवा': ('SAWA', 0.25), 'sawa': ('SAWA', 0.25), 'sowa': ('SAWA', 0.25),
 }
 
-CONNECTORS = {'and', 'plus', 'with', 'ও', 'আর', 'এবং', 'aur', 'और', 'तथा', 'एवं'}
+CONNECTORS = {'and', 'plus', 'with', 'ও', 'আর', 'এবং', 'aur', 'और', 'तथा', 'एवं', 'ar'}
 DECIMAL_MARKERS = {'point', 'dot', 'দশমিক', 'दशमलव'}
 NEGATIVE_MARKERS = {'minus', 'negative', 'মাইনাস', 'माइनस'}
 
 STOPWORDS = {
-    'taka', 'টাকা', 'rupee', 'rupees', 'rupaye', 'रुपये', 'रुपया', 'টাকাটা',
+    'taka', 'টাকা', 'টাকাটা', 'টাকার', 'তাকা', 'তাকাটা', 'তাকার', 'rupee', 'rupees', 'rupaye', 'रुपये', 'रुपया',
     'rs', 'inr', 'tk', 'usd', 'dollar', 'dollars', 'bucks', 'cent', 'cents', 'paisa', 'poisa', 'পয়সা', 'पैसे',
     'kg', 'কেজি', 'किलो', 'gram', 'gm', 'g', 'গ্রাম', 'ग्राम', 'litre', 'ltr', 'km', 'meter', 'm',
     'piece', 'pieces', 'পিস', 'পিচ', 'পিসেস', 'পিছ', 'পিসটা', 'টা', 'টি', 'খানা', 'খানি',
-    'product', 'প্রোডাক্ট', 'उत्पाद', 'rate', 'রেট', 'दर', 'price', 'দাম', 'কীমত', 'कीमत',
+    'ta', 'ti', 'to', 'te',
+    'product', 'প্রোডাক্ট', 'उत्पाद', 'rate', 'রেট', 'दर', 'price', 'দাম', 'दाम', 'কীমত', 'कीमत', 'bhav', 'भाव', 'ভাব',
     'quantity', 'পরিমাণ', 'मात्रा', 'st', 'nd', 'rd', 'th',
     'approx', 'approximately', 'around', 'about', 'nearly', 'almost', 'roughly', 'total', 'worth', 'only',
     'pray', 'প্রায়', 'kachakachi', 'কাছাকাছি', 'moto', 'মতো', 'মতন', 'motamuti', 'মোটামুটি', 'mot', 'মোট',
     'lagbhag', 'लगभग', 'kareeb', 'karib', 'करीब', 'aaspas', 'आसपास', 'kul', 'कुल',
-    'um', 'uh', 'er', 'ah', 'like', 'well', 'okay', 'ok', 'mane', 'মানে', 'matlab', 'मतलब', 'yaani', 'দাও', 'give',
+    'um', 'uh', 'er', 'ah', 'like', 'well', 'okay', 'ok', 'mane', 'মানে', 'matlab', 'मतलब', 'yaani',
+    'দাও', 'give', 'din', 'দিন', 'দিবেন', 'দিনকে', 'दीजिए', 'दीजिये', 'देना', 'दें',
+    'chahiye', 'चाहिए', 'lagbe', 'লাগবে', 'koto', 'কত', 'কতো', 'কতটা', 'কতখানি',
+    'of',
+    # Grocery / commodity nouns (guarded against fuzzy number false positives)
+    'chal', 'chaal', 'চাল', 'chawal', 'चावल', 'rice',
+    'flour', 'aata', 'আটা', 'आटा', 'maida', 'ময়দা', 'ময়দা', 'मैदा', 'suji', 'sooji', 'সুজি', 'सूजी', 'besan', 'বেসন', 'बेसन',
+    'dal', 'daal', 'dhal', 'ডাল', 'দাল', 'दाल',
+    'chini', 'চিনি', 'चीनी', 'sugar',
+    'alu', 'aloo', 'আলু', 'आलू', 'potato', 'potatoes',
+    'peyaj', 'পেঁয়াজ', 'পেয়াজ', 'pyaz', 'pyaaz', 'प्याज', 'प्याज़', 'onion', 'onions',
+    'tel', 'তেল', 'तेल', 'oil',
+    'nun', 'noon', 'নুন', 'lobon', 'লবণ', 'namak', 'नमक', 'salt',
+    'dudh', 'doodh', 'দুধ', 'दूध', 'milk',
+    'cha', 'চা', 'chai', 'चाय', 'tea', 'coffee', 'কফি', 'कॉफी',
+    'dim', 'ডিম', 'anda', 'अंडा', 'अंडे', 'egg', 'eggs',
+    'roti', 'রুটি', 'रोटी', 'bread',
+    'sobji', 'sabji', 'sabzi', 'সবজি', 'সবজী', 'सब्जी', 'सब्ज़ी', 'saman', 'सामान',
     # Disjunctions / ranges (separate numbers, not additive)
-    'বা', 'অথবা', 'থেকে', 'পর্যন্ত', 'या', 'अथवा', 'से', 'तक', 'or', 'to',
+    'বা', 'অথবা', 'থেকে', 'পর্যন্ত', 'theke', 'porjonto', 'porjanto', 'या', 'अथवा', 'से', 'तक', 'or', 'to',
 }
 
 SHORT_STOPWORDS = {
     'to', 'in', 'by', 'on', 'at', 'is', 'it', 'an', 'as', 'or', 'if', 'we', 'he',
     'me', 'us', 'am', 'my', 'up', 'for', 'won', 'ate', 'too', 'na', 'je', 'ki', 'se', 'ka', 'ko',
+    'of', 'ta', 'ti', 'te',
     'বা', 'या', 'से', 'না',
 }
 
@@ -710,13 +734,15 @@ def resolve_fuzzy(token: str) -> Optional[Tuple[Union[int, float], str]]:
     Only returns a result if the top-scoring candidate has a clear lead (margin >= 1).
     """
     q = token.lower()
+    if q in STOPWORDS or q in SHORT_STOPWORDS:
+        return None
     q_len = len(q)
     if q_len < 5:
         return resolve_fuzzy_short(token)
 
-    # Guard: if token ends in "so", "sho", "sau" but failed exact match (e.g. "teroso"),
+    # Guard: if token ends in "so", "sho", "sau", "শো", "শ", "সৌ" but failed exact match (e.g. "teroso", "তেরোশ"),
     # do NOT fuzzy guess it against 1800 or 13.
-    for suffix in ('so', 'sho', 'sau'):
+    for suffix in ('so', 'sho', 'sau', 'শো', 'শ', 'সৌ'):
         if q.endswith(suffix) and q_len > len(suffix) + 1:
             return None
 
@@ -764,18 +790,18 @@ class Token:
 
 TOKEN_RE = re.compile(
     r'\d+\.\d+'
-    r'|[a-zA-Z\u0900-\u09FF]+\d+\w*'
+    r'|[a-zA-Z\u00C0-\u024F\u0900-\u09FF]+\d+\w*'
     r'|\d+'
-    r'|[\u0980-\u09FF\u0900-\u097Fa-zA-Z]+'
+    r'|[\u0980-\u09FF\u0900-\u097Fa-zA-Z\u00C0-\u024F]+'
     r'|[^\s]+'
 )
 
 
 def _is_alphanumeric_code(raw: str) -> bool:
-    has_letters = bool(re.search(r'[a-zA-Z\u0900-\u09FF]', raw))
+    has_letters = bool(re.search(r'[a-zA-Z\u00C0-\u024F\u0900-\u09FF]', raw))
     has_digits = bool(re.search(r'\d', raw))
     if has_letters and has_digits:
-        if re.search(r'^[a-zA-Z\u0900-\u09FF]+\d', raw) or re.search(r'\d+[a-zA-Z\u0900-\u09FF]+\d', raw):
+        if re.search(r'^[a-zA-Z\u00C0-\u024F\u0900-\u09FF]+\d', raw) or re.search(r'\d+[a-zA-Z\u00C0-\u024F\u0900-\u09FF]+\d', raw):
             return True
     return False
 
@@ -822,6 +848,8 @@ def try_compound_hundred(token: str) -> Optional[int]:
         if token.endswith(suffix) and len(token) > len(suffix):
             prefix = token[:-len(suffix)]
             prefix_norm = normalize_indic_chars(prefix)
+            if prefix_norm in ('তেরো',):
+                continue
             if prefix_norm in EXACT_MAP:
                 val, kind = EXACT_MAP[prefix_norm]
                 if kind in ('WORD', 'FRACTION'):
@@ -952,9 +980,53 @@ def _fold_fraction_prefixes(tokens: List[Token]) -> List[Token]:
                 folded.append(Token(raw=f"{t.raw} {next_t.raw}", kind='FRACTION', value=val_to_use, matched_as=f"{t.matched_as} {next_t.matched_as}"))
                 i += 2
                 continue
+        if t.kind == 'FRACTION_PREFIX' and t.matched_as == 'SAWA':
+            folded.append(Token(raw=t.raw, kind='FRACTION', value=1.25, matched_as=t.matched_as))
+            i += 1
+            continue
         folded.append(t)
         i += 1
     return folded
+
+
+_ATTACHED_UNIT_SUFFIXES = sorted([
+    'টাকাটা', 'টাকার', 'টাকা', 'তাকাটা', 'তাকার', 'তাকা',
+    'পয়সাটা', 'পয়সার', 'পয়সা', 'পয়সাটা', 'পয়সার', 'পয়সা',
+    'रुपयों', 'रुपये', 'रुपया', 'पैसे', 'पैसा',
+    'লিটারটা', 'লিটারের', 'লিটার', 'लीटर',
+    'গ্রামটা', 'গ্রামের', 'গ্রাম', 'ग्राम',
+    'কেজি', 'किलो', 'পিসটা', 'পিসেস', 'পিস', 'পিচ', 'पीस',
+    'টা', 'টি', 'টো', 'টে', 'খানা', 'খানি',
+    'takata', 'takar', 'taka',
+    'rupees', 'rupayee', 'rupaye', 'rupee', 'paisa', 'paise', 'poisa',
+    'dollars', 'dollar', 'bucks', 'buck', 'cents', 'cent',
+    'pieces', 'piece',
+    'litres', 'liters', 'litre', 'liter', 'ltr',
+    'grams', 'gram', 'gm',
+    'kilos', 'kilo', 'kg',
+], key=len, reverse=True)
+
+
+def _split_attached_units(tokens: List[Token]) -> List[Token]:
+    expanded: List[Token] = []
+    for t in tokens:
+        if t.kind == 'OTHER' and t.value is None and len(t.raw) > 2:
+            matched = False
+            raw_norm = normalize_indic_chars(t.raw.lower().strip())
+            for suf in _ATTACHED_UNIT_SUFFIXES:
+                if raw_norm.endswith(suf) and len(raw_norm) > len(suf):
+                    stem = raw_norm[:-len(suf)]
+                    stem_tok = classify(stem)
+                    if stem_tok.kind in ('WORD', 'COMPOUND', 'MAGNITUDE', 'FRACTION', 'DIGIT') and stem_tok.value is not None:
+                        expanded.append(stem_tok)
+                        expanded.append(classify(suf))
+                        matched = True
+                        break
+            if not matched:
+                expanded.append(t)
+        else:
+            expanded.append(t)
+    return expanded
 
 
 def tokenize(text: str) -> List[Token]:
@@ -964,6 +1036,7 @@ def tokenize(text: str) -> List[Token]:
     for t in raw_tokens:
         tok = classify(t)
         tokens.append(tok)
+    tokens = _split_attached_units(tokens)
     tokens = _expand_repeaters(tokens)
     tokens = _fold_fraction_prefixes(tokens)
     return tokens
@@ -1022,6 +1095,10 @@ def parse_tokens(tokens: List[Token]) -> NumberResult:
     n = len(tokens)
     while i < n:
         tok = tokens[i]
+
+        if tok.kind != 'MAGNITUDE' and fraction_multiplier is not None:
+            current += fraction_multiplier
+            fraction_multiplier = None
 
         if tok.kind == 'CONNECTOR':
             prev_kind = tok.kind
@@ -1185,6 +1262,10 @@ def parse_tokens(tokens: List[Token]) -> NumberResult:
     if ambiguous_reason:
         return NumberResult(text=text, value=None, ambiguous=True, reason=ambiguous_reason, tokens=tokens[:i])
 
+    if fraction_multiplier is not None:
+        current += fraction_multiplier
+        fraction_multiplier = None
+
     if not seen_any:
         return NumberResult(text=text, value=None, ambiguous=False, reason='no number found', tokens=tokens)
 
@@ -1192,6 +1273,8 @@ def parse_tokens(tokens: List[Token]) -> NumberResult:
         final = LeadingZeroNum(digit_str)
     else:
         final = result + current
+        if isinstance(final, float) and final.is_integer():
+            final = int(final)
         if negative:
             final = -final
     return NumberResult(text=text, value=final, ambiguous=False, tokens=tokens[:i])
@@ -1272,10 +1355,30 @@ def extract_numbers(text: str) -> List[NumberResult]:
                 results.append(res)
         group = []
 
-    for tok in tokens:
+    for idx, tok in enumerate(tokens):
         if tok.kind == 'OTHER':
             flush()
             continue
+        if tok.kind == 'CONNECTOR':
+            # Only connect inside group if preceding token is a magnitude/compound and next token is smaller
+            is_internal = False
+            if group:
+                last = group[-1]
+                mag_val = None
+                if last.kind == 'MAGNITUDE' and last.value is not None:
+                    mag_val = last.value
+                elif last.kind == 'COMPOUND' and last.value is not None:
+                    mag_val = 100
+                elif last.kind == 'DIGIT' and last.value is not None and last.value % 100 == 0:
+                    mag_val = last.value
+
+                if mag_val is not None and idx + 1 < len(tokens):
+                    next_tok = tokens[idx + 1]
+                    if next_tok.value is not None and next_tok.value < mag_val:
+                        is_internal = True
+            if not is_internal:
+                flush()
+                continue
         if tok.kind == 'DIGIT' and prev_was_digit:
             flush()
         group.append(tok)
